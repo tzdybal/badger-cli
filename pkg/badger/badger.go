@@ -1,10 +1,11 @@
 package badger
 
 import (
+	"encoding/hex"
 	"fmt"
 	"time"
 
-	"github.com/dgraph-io/badger"
+	"github.com/dgraph-io/badger/v3"
 )
 
 type DB struct {
@@ -37,7 +38,11 @@ func (db *DB) Get(keys ...string) ([]string, error) {
 	var values []string
 	err := db.View(func(txn *badger.Txn) error {
 		for _, k := range keys {
-			item, err := txn.Get([]byte(k))
+			realKey, err := hex.DecodeString(k)
+			if err != nil {
+				return err
+			}
+			item, err := txn.Get(realKey)
 			if err != nil {
 				if err == badger.ErrKeyNotFound {
 					return fmt.Errorf("Key %s not found", k)
@@ -87,7 +92,7 @@ func (db *DB) List(prefix string, limit, offset int) ([]ListResult, int, error) 
 				keys = append(
 					keys,
 					ListResult{
-						Key:     string(item.KeyCopy(nil)),
+						Key:     hex.EncodeToString(item.KeyCopy(nil)),
 						Size:    item.EstimatedSize(),
 						Version: item.Version(),
 						Meta:    item.UserMeta(),
